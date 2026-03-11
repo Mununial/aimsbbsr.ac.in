@@ -3,10 +3,14 @@
 // by using the actual IP address of the laptop instead of 'localhost'.
 
 const getBaseUrl = () => {
-    // If you are accessing the site via an IP address (like 10.108.x.x), 
-    // the app will automatically point to the same IP for the backend.
+    // If we are on Render (Production), use the secure backend URL
+    if (window.location.hostname !== 'localhost') {
+        return 'https://aimsbbsr-ac-in.onrender.com';
+    }
+
+    // Otherwise, use local development defaults
     const hostname = window.location.hostname;
-    const port = 5000; // Your backend port
+    const port = 5000;
     return `http://${hostname}:${port}`;
 };
 
