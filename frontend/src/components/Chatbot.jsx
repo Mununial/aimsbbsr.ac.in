@@ -148,7 +148,7 @@ const Chatbot = () => {
     };
 
     return (
-        <div className="fixed bottom-8 right-8 z-[80]">
+        <div className="fixed bottom-28 md:bottom-12 right-8 z-[80]">
             <motion.button
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
@@ -175,7 +175,7 @@ const Chatbot = () => {
                         <div className="bg-dark p-6 pb-12 relative shrink-0">
                             <div className="absolute top-0 right-0 w-32 h-32 bg-primary/20 blur-[60px] rounded-full" />
                             <div className="flex items-center gap-4 relative z-10">
-                                <div className="w-14 h-14 bg-white rounded-2xl p-2 shadow-2xl flex items-center justify-center">
+                                <div className="w-16 h-16 bg-white rounded-[24px] p-2.5 shadow-2xl flex items-center justify-center border border-white/10 ring-4 ring-white/5">
                                     <img src={aimsLogo} alt="Logo" className="w-full h-full object-contain" />
                                 </div>
                                 <div>

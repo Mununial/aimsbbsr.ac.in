@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
-import API_BASE_URL from '../apiConfig';
+import { db } from '../firebase';
+import { collection, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { ArrowRight, ChevronRight, GraduationCap, Building2, Beaker, Users, CheckCircle, Bell, Loader2, UserCircle2, Sparkles, BookOpen, Microscope, BookCheck, Telescope, ShieldCheck } from 'lucide-react';
 import NewsMarquee from '../components/NewsMarquee';
 import SEO from '../components/SEO';
+import aimsLogo from '../assets/aims_logo.png';
 
 // Assets
 import campusHero from '../assets/real_campus1.jpg';
@@ -32,32 +33,49 @@ const Home = () => {
     ];
 
     useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const [heroRes, facRes, noticeRes] = await Promise.all([
-                    axios.get(`${API_BASE_URL}/api/hero`),
-                    axios.get(`${API_BASE_URL}/api/faculty`),
-                    axios.get(`${API_BASE_URL}/api/notices`)
-                ]);
+        let unsubscribeHero, unsubscribeFaculty, unsubscribeNotices;
 
-                setHeroSlides(heroRes.data.length > 0 ? heroRes.data.map(s => ({
-                    image: `${API_BASE_URL}/${s.image_url}`,
-                    title: s.title,
-                    subtitle: s.subtitle,
-                    desc: s.description,
-                    type: s.media_type || 'image'
-                })) : defaultSlides);
+        try {
+            // Subscribe to Hero
+            const qHero = query(collection(db, "hero"));
+            unsubscribeHero = onSnapshot(qHero, (snapshot) => {
+                if (!snapshot.empty) {
+                    setHeroSlides(snapshot.docs.map(doc => ({
+                        image: doc.data().image_url,
+                        title: doc.data().title,
+                        subtitle: doc.data().subtitle,
+                        desc: doc.data().description,
+                        type: doc.data().media_type || 'image'
+                    })));
+                } else {
+                    setHeroSlides(defaultSlides);
+                }
+            });
 
-                setFaculty(facRes.data.slice(0, 4));
-                setNotices(noticeRes.data.slice(0, 3));
-            } catch (err) {
-                console.error("Error fetching homepage data", err);
-                setHeroSlides(defaultSlides);
-            } finally {
-                setLoading(false);
-            }
+            // Subscribe to Faculty (example)
+            const qFaculty = query(collection(db, "faculty"), limit(4));
+            unsubscribeFaculty = onSnapshot(qFaculty, (snapshot) => {
+                setFaculty(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+            });
+
+            // Subscribe to Notices
+            const qNotices = query(collection(db, "notices"));
+            unsubscribeNotices = onSnapshot(qNotices, (snapshot) => {
+                setNotices(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+            });
+
+            setLoading(false);
+        } catch (err) {
+            console.error("Error setting up Firebase listeners", err);
+            setHeroSlides(defaultSlides);
+            setLoading(false);
+        }
+
+        return () => {
+            if (unsubscribeHero) unsubscribeHero();
+            if (unsubscribeFaculty) unsubscribeFaculty();
+            if (unsubscribeNotices) unsubscribeNotices();
         };
-        fetchData();
     }, []);
 
     useEffect(() => {
@@ -184,7 +202,7 @@ const Home = () => {
                 </div>
 
                 {/* Content Layer */}
-                <div className="relative z-10 flex-grow flex items-center pt-16 md:pt-24 pb-10">
+                <div className="relative z-10 flex-grow flex items-center pt-24 md:pt-32 pb-10">
                     <div className="container mx-auto px-6 md:px-12">
                         <AnimatePresence mode="wait">
                             <motion.div

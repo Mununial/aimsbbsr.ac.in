@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
-import API_BASE_URL from '../apiConfig';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Linkedin, GraduationCap, Loader2, UserCircle2 } from 'lucide-react';
+import { db } from '../firebase';
+import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import SEO from '../components/SEO';
 
 const Faculty = () => {
@@ -10,17 +10,17 @@ const Faculty = () => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const fetchFaculty = async () => {
-            try {
-                const res = await axios.get(`${API_BASE_URL}/api/faculty`);
-                setFaculty(res.data);
-            } catch (err) {
-                console.error("Error fetching faculty", err);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchFaculty();
+        const q = query(collection(db, "faculty")); // Add orderBy if needed
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setFaculty(data);
+            setLoading(false);
+        }, (error) => {
+            console.error("Error fetching faculty:", error);
+            setLoading(false);
+        });
+
+        return () => unsubscribe();
     }, []);
 
     const containerVariants = {
@@ -95,7 +95,7 @@ const Faculty = () => {
                                 <div className="relative h-64 overflow-hidden bg-gray-100">
                                     {fac.photo ? (
                                         <img
-                                            src={`${API_BASE_URL}/${fac.photo}`}
+                                            src={fac.photo}
                                             alt={fac.name}
                                             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                                         />

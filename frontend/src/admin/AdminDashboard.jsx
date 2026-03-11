@@ -33,13 +33,13 @@ const AdminDashboard = () => {
             {/* Sidebar */}
             <aside className={`fixed inset-y-0 left-0 z-50 w-72 bg-[#1e2a3a] text-white transform transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:relative lg:translate-x-0`}>
                 <div className="h-full flex flex-col p-6">
-                    <div className="flex items-center gap-3 mb-10">
-                        <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center p-1 shadow-lg overflow-hidden">
+                    <div className="flex items-center gap-4 mb-12">
+                        <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center p-2 shadow-2xl overflow-hidden ring-4 ring-white/5">
                             <img src={aimsLogo} alt="AIMS Logo" className="w-full h-full object-contain" />
                         </div>
                         <div>
-                            <h2 className="text-xl font-bold tracking-widest text-primary">AIMS</h2>
-                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tighter leading-none">Admin Panel</p>
+                            <h2 className="text-2xl font-black tracking-tight text-white leading-none">AIMS</h2>
+                            <p className="text-[10px] text-primary font-black uppercase tracking-[0.2em] mt-1.5 leading-none italic">Admin Panel</p>
                         </div>
                         <button className="lg:hidden ml-auto text-gray-400" onClick={() => setSidebarOpen(false)}>
                             <X size={24} />

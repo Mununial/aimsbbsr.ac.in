@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bell, Calendar, ChevronRight, Info, Search, Filter, Phone, Mail, ArrowUpRight } from 'lucide-react';
-import axios from 'axios';
-import API_BASE_URL from '../apiConfig';
+import { db } from '../firebase';
+import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import SEO from '../components/SEO';
+import aimsLogo from '../assets/aims_logo.png';
 
 const NoticeBoard = () => {
     const [notices, setNotices] = useState([]);
@@ -14,14 +15,14 @@ const NoticeBoard = () => {
     const categories = ['All', 'Admission', 'Academic', 'Examination', 'Events'];
 
     useEffect(() => {
-        const fetchNotices = async () => {
-            try {
-                const res = await axios.get(`${API_BASE_URL}/api/notices`);
-                const data = res.data;
+        // Removed orderBy("date", "desc") to prevent index error
+        const q = query(collection(db, "notices"));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            if (data.length > 0) {
                 setNotices(data);
                 setFilteredNotices(data);
-            } catch (err) {
-                console.error("Error fetching notices", err);
+            } else {
                 const demoData = [
                     { id: 1, title: "Admission Open for B.Pharm 2026-27", description: "The online application portal for B.Pharm and D.Pharm courses for the upcoming academic session 2026-27 is now active. Interested candidates are advised to apply within the specified timeline to ensure their seat.", date: "2026-03-08T10:00:00.000Z", category: "Admission" },
                     { id: 2, title: "Semester Exam Schedule Announced", description: "The even semester examinations for B.Pharm 2nd and 4th years will commence from 15th April. Students can download the detailed timetable from the student portal.", date: "2026-03-05T09:30:00.000Z", category: "Examination" },
@@ -29,11 +30,14 @@ const NoticeBoard = () => {
                 ];
                 setNotices(demoData);
                 setFilteredNotices(demoData);
-            } finally {
-                setLoading(false);
             }
-        };
-        fetchNotices();
+            setLoading(false);
+        }, (error) => {
+            console.error("Error fetching notices:", error);
+            setLoading(false);
+        });
+
+        return () => unsubscribe();
     }, []);
 
     useEffect(() => {
@@ -68,12 +72,14 @@ const NoticeBoard = () => {
                         animate={{ opacity: 1, x: 0 }}
                         className="max-w-3xl"
                     >
-                        <span className="text-primary font-black uppercase tracking-[0.4em] text-[10px] bg-primary/10 px-4 py-2 rounded-full mb-6 inline-block border border-primary/20">
-                            Updates & Announcements
-                        </span>
-                        <h1 className="text-5xl lg:text-7xl font-black text-white mb-6 tracking-tight leading-none">
-                            AIMS <span className="text-primary">Notice</span> Board
-                        </h1>
+                        <div>
+                            <span className="text-primary font-black uppercase tracking-[0.4em] text-[10px] bg-primary/10 px-4 py-2 rounded-full mb-4 inline-block border border-primary/20">
+                                Updates & Announcements
+                            </span>
+                            <h1 className="text-5xl lg:text-7xl font-black text-white mb-0 tracking-tight leading-none uppercase">
+                                AIMS <span className="text-primary">Notice</span> Board
+                            </h1>
+                        </div>
                         <p className="text-gray-400 text-xl font-medium leading-relaxed">
                             Complete repository of all official communications, academic notifications, and upcoming event details for AIMS Bhubaneswar.
                         </p>

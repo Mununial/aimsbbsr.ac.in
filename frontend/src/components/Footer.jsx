@@ -7,7 +7,7 @@ const Footer = () => {
     const mapEmbedUrl = "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3742.662454553232!2d85.73356000000001!3d20.244!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3a1907cb5cf3470b%3A0x6b876ca689622d86!2sSUM%20Hospital!5e0!3m2!1sen!2sin!4v1700000000000!5m2!1sen!2sin";
 
     return (
-        <footer className="bg-[#0f172a] text-white pt-32 pb-12 border-t border-white/5 relative overflow-hidden">
+        <footer className="bg-[#0f172a] text-white pt-20 md:pt-32 pb-20 border-t border-white/5 relative overflow-hidden">
             {/* Background decorative elements */}
             <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-primary/10 blur-[150px] rounded-full -mr-[300px] -mt-[300px]" />
             <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-primary/5 blur-[100px] rounded-full -ml-[200px] -mb-[200px]" />
@@ -22,8 +22,8 @@ const Footer = () => {
                             viewport={{ once: true }}
                             className="flex items-center gap-4 mb-10"
                         >
-                            <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center p-2 shadow-2xl shadow-primary/20">
-                                <img src={aimsLogo} alt="AIMS Logo" className="w-full h-full object-contain" />
+                            <div className="w-20 h-20 md:w-24 md:h-24 bg-white rounded-2xl md:rounded-[32px] flex items-center justify-center p-2 md:p-2.5 shadow-2xl shadow-primary/30 border border-white/10 md:ring-8 ring-4 ring-white/5">
+                                <img src={aimsLogo} alt="AIMS Logo" className="w-full h-full object-contain shrink-0" />
                             </div>
                             <div>
                                 <h2 className="text-xl font-black tracking-tight text-white leading-none uppercase">AIMS</h2>
@@ -153,7 +153,7 @@ const Footer = () => {
                 </div>
 
                 {/* Bottom Bar */}
-                <div className="pt-12 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-8 text-center md:text-left">
+                <div className="pt-8 md:pt-12 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-6 md:gap-8 text-center md:text-left">
                     <div className="space-y-4">
                         <p className="text-gray-500 text-[11px] font-black uppercase tracking-[0.2em]">
                             &copy; {new Date().getFullYear()} <span className="text-white">Ayush Institute of Medical Sciences Bhubaneswar</span>

@@ -1,28 +1,25 @@
 import { useState, useEffect } from 'react';
 import { ChevronRight, Sparkles } from 'lucide-react';
-import axios from 'axios';
 import { Link } from 'react-router-dom';
-import API_BASE_URL from '../apiConfig';
+import { db } from '../firebase';
+import { collection, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
 
 const NewsMarquee = () => {
     const [notices, setNotices] = useState([]);
 
     useEffect(() => {
-        const fetchNotices = async () => {
-            try {
-                const res = await axios.get(`${API_BASE_URL}/api/notices`);
-                setNotices(res.data);
-            } catch (err) {
-                console.error("Error fetching notices:", err);
-                setNotices([
-                    { title: "Admission Open for B.Pharm 2026-27" },
-                    { title: "Semester Exam Schedule Announced" },
-                    { title: "National Pharmacy Workshop on 20th March" },
-                    { title: "New Research Lab Inaugurated by Principal Dr Bn biswal" }
-                ]);
-            }
-        };
-        fetchNotices();
+        const q = query(collection(db, "notices"));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+                             .sort((a, b) => new Date(b.date || b.created_at || Date.now()) - new Date(a.date || a.created_at || Date.now()))
+                             .slice(0, 5);
+            setNotices(data);
+        }, (error) => {
+            console.error("Error fetching notices:", error);
+            setNotices([]);
+        });
+
+        return () => unsubscribe();
     }, []);
 
     if (notices.length === 0) return null;

@@ -7,7 +7,7 @@ const WhatsAppButton = () => {
     const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
 
     return (
-        <div className="fixed bottom-8 left-8 z-[80]">
+        <div className="fixed bottom-28 md:bottom-12 left-8 z-[80]">
             <motion.a
                 href={whatsappUrl}
                 target="_blank"

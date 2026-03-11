@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
 import { Plus, Trash2, Edit2, Save, X, Building, Loader2 } from 'lucide-react';
-import API_BASE_URL from '../apiConfig';
+import { db } from '../firebase';
+import { collection, addDoc, doc, updateDoc, deleteDoc, onSnapshot, query, orderBy } from 'firebase/firestore';
 
 const AdminDepartments = () => {
     const [departments, setDepartments] = useState([]);
@@ -20,23 +20,23 @@ const AdminDepartments = () => {
     const token = localStorage.getItem('token');
 
     useEffect(() => {
-        fetchData();
-    }, []);
-
-    const fetchData = async () => {
-        try {
-            const [deptRes, courseRes] = await Promise.all([
-                axios.get(`${API_BASE_URL}/api/departments`),
-                axios.get(`${API_BASE_URL}/api/courses`)
-            ]);
-            setDepartments(deptRes.data);
-            setCourses(courseRes.data);
+        const unsubscribeDept = onSnapshot(collection(db, "departments"), (snapshot) => {
+            setDepartments(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
             setLoading(false);
-        } catch (err) {
+        }, (err) => {
             console.error('Error fetching departments:', err);
             setLoading(false);
-        }
-    };
+        });
+
+        const unsubscribeCourse = onSnapshot(collection(db, "courses"), (snapshot) => {
+            setCourses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        }, (err) => console.error(err));
+
+        return () => {
+            unsubscribeDept();
+            unsubscribeCourse();
+        };
+    }, []);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -46,18 +46,27 @@ const AdminDepartments = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setActionLoading(true);
+
+        const course = courses.find(c => c.id === formData.course_id);
+        const course_name = course ? course.course_name : '';
+
         try {
             if (editingId) {
-                await axios.put(`${API_BASE_URL}/api/departments/${editingId}`, formData, {
-                    headers: { 'Authorization': `Bearer ${token}` }
+                await updateDoc(doc(db, "departments", editingId), {
+                    department_name: formData.department_name,
+                    course_id: formData.course_id,
+                    course_name: course_name,
+                    description: formData.description
                 });
             } else {
-                await axios.post(`${API_BASE_URL}/api/departments`, formData, {
-                    headers: { 'Authorization': `Bearer ${token}` }
+                await addDoc(collection(db, "departments"), {
+                    department_name: formData.department_name,
+                    course_id: formData.course_id,
+                    course_name: course_name,
+                    description: formData.description
                 });
             }
             resetForm();
-            fetchData();
         } catch (err) {
             alert('Error: ' + err.message);
         } finally {
@@ -78,10 +87,7 @@ const AdminDepartments = () => {
     const handleDelete = async (id) => {
         if (!window.confirm('Delete this department? Faculty in this department will be affected.')) return;
         try {
-            await axios.delete(`${API_BASE_URL}/api/departments/${id}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            fetchData();
+            await deleteDoc(doc(db, "departments", id));
         } catch (err) {
             alert('Error: ' + err.message);
         }

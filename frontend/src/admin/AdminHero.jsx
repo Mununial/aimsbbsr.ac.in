@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
 import { Plus, Trash2, Edit3, Save, X, Image as ImageIcon, Upload } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import API_BASE_URL from '../apiConfig';
-
-const API_URL = `${API_BASE_URL}/api`;
+import { db, storage } from '../firebase';
+import { collection, addDoc, doc, updateDoc, deleteDoc, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 
 const AdminHero = () => {
     const [slides, setSlides] = useState([]);
@@ -13,82 +12,129 @@ const AdminHero = () => {
     const [loading, setLoading] = useState(true);
     const [newSlide, setNewSlide] = useState({ title: '', subtitle: '', description: '', image: null, order_id: 0, media_type: 'image' });
     const { user } = useAuth();
-    const token = localStorage.getItem('token');
-
     useEffect(() => {
-        fetchSlides();
-    }, []);
+        // Removed orderBy("order_id", "asc") to prevent missing index errors
+        const q = query(collection(db, "hero"));
+        let isMounted = true;
+        const fallbackTimer = setTimeout(() => {
+            if (isMounted) {
+                setLoading(false);
+                console.warn("Firebase took too long to respond, forcing loading to false.");
+            }
+        }, 5000);
 
-    const fetchSlides = async () => {
-        try {
-            const res = await axios.get(`${API_URL}/hero`);
-            setSlides(res.data);
-            setLoading(false);
-        } catch (err) {
-            console.error(err);
-            setLoading(false);
-        }
-    };
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            if (snapshot.empty) {
+                setSlides([]);
+                if (isMounted) setLoading(false);
+                clearTimeout(fallbackTimer);
+                return;
+            }
+            // Sort client-side instead
+            const heroData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+                                 .sort((a, b) => (Number(a.order_id) || 0) - (Number(b.order_id) || 0));
+            setSlides(heroData);
+            if (isMounted) setLoading(false);
+            clearTimeout(fallbackTimer);
+        }, (error) => {
+            console.error("Error fetching hero slides:", error);
+            setSlides([]);
+            if (isMounted) setLoading(false);
+            clearTimeout(fallbackTimer);
+            alert("Error connecting to database. Please check your internet or Firebase configuration.");
+        });
+
+        return () => {
+            isMounted = false;
+            clearTimeout(fallbackTimer);
+            unsubscribe();
+        };
+    }, []);
 
     const handleAdd = async (e) => {
         e.preventDefault();
-        const formData = new FormData();
-        formData.append('title', newSlide.title);
-        formData.append('subtitle', newSlide.subtitle);
-        formData.append('description', newSlide.description);
-        formData.append('order_id', newSlide.order_id);
-        formData.append('media_type', newSlide.media_type);
-        if (newSlide.image) formData.append('image', newSlide.image);
-
         try {
-            await axios.post(`${API_URL}/hero`, formData, {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'multipart/form-data'
+            let image_url = null;
+            if (newSlide.image) {
+                const formData = new FormData();
+                formData.append('image', newSlide.image);
+                
+                try {
+                    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+                    const response = await fetch(`${API_URL}/api/upload`, {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const data = await response.json();
+                    if (!response.ok) throw new Error(data.message || 'Upload failed');
+                    image_url = data.url;
+                } catch (error) {
+                    throw new Error("Cloudinary upload failed: " + error.message);
                 }
+            }
+
+            await addDoc(collection(db, "hero"), {
+                title: newSlide.title,
+                subtitle: newSlide.subtitle,
+                description: newSlide.description,
+                order_id: Number(newSlide.order_id) || 0,
+                media_type: newSlide.media_type || 'image',
+                image_url: image_url
             });
+
             setIsAdding(false);
             setNewSlide({ title: '', subtitle: '', description: '', image: null, order_id: 0, media_type: 'image' });
-            fetchSlides();
         } catch (err) {
-            alert("Error adding slide: " + (err.response?.data?.error || err.message));
+            alert("Error adding slide: " + err.message);
         }
     };
 
-    const handleDelete = async (id) => {
+    const handleDelete = async (slide) => {
         if (!window.confirm("Delete this hero slide?")) return;
         try {
-            await axios.delete(`${API_URL}/hero/${id}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            fetchSlides();
+            if (slide.image_url && slide.image_url.includes('firebase')) {
+                try {
+                    const fileRef = ref(storage, slide.image_url);
+                    await deleteObject(fileRef);
+                } catch(e) { console.error("Could not delete legacy image from storage", e); }
+            }
+            await deleteDoc(doc(db, "hero", slide.id));
         } catch (err) {
             alert("Error deleting slide");
         }
     };
 
     const handleUpdate = async (id, updatedSlide) => {
-        const formData = new FormData();
-        formData.append('title', updatedSlide.title);
-        formData.append('subtitle', updatedSlide.subtitle);
-        formData.append('description', updatedSlide.description);
-        formData.append('order_id', updatedSlide.order_id);
-        formData.append('media_type', updatedSlide.media_type);
-        if (updatedSlide.newImage) formData.append('image', updatedSlide.newImage);
-        else formData.append('image_url', updatedSlide.image_url);
-
         try {
-            await axios.put(`${API_URL}/hero/${id}`, formData, {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'multipart/form-data'
-                }
+            let image_url = updatedSlide.image_url;
+            
+            if (updatedSlide.newImage) {
+                const formData = new FormData();
+                formData.append('image', updatedSlide.newImage);
+                
+                const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+                const response = await fetch(`${API_URL}/api/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.message || 'Upload failed');
+                image_url = data.url;
+            }
+
+            await updateDoc(doc(db, "hero", id), {
+                title: updatedSlide.title,
+                subtitle: updatedSlide.subtitle,
+                description: updatedSlide.description,
+                order_id: Number(updatedSlide.order_id),
+                media_type: updatedSlide.media_type,
+                image_url: image_url
             });
+
             setIsEditing(null);
-            fetchSlides();
         } catch (err) {
             console.error(err);
-            alert("Error updating slide");
+            alert("Error updating slide: " + err.message);
         }
     };
 
@@ -270,18 +316,20 @@ const AdminHero = () => {
                         <div className="relative h-64 overflow-hidden">
                             {slide.media_type === 'video' ? (
                                 <video
-                                    src={`${API_BASE_URL}/${slide.image_url}`}
+                                    src={slide.image_url}
                                     className="w-full h-full object-cover grayscale group-hover:grayscale-0 group-hover:scale-110 transition-all duration-1000"
                                     muted loop autoPlay
+                                    playsInline
                                 />
                             ) : (
                                 <img
-                                    src={`${API_BASE_URL}/${slide.image_url}`}
+                                    src={slide.image_url || 'https://via.placeholder.com/800x400?text=No+Image'}
                                     className="w-full h-full object-cover grayscale group-hover:grayscale-0 group-hover:scale-110 transition-all duration-1000"
+                                    alt={slide.title}
                                 />
                             )}
                             <div className="absolute top-6 right-6 flex gap-3 z-30">
-                                <button onClick={() => handleDelete(slide.id)} className="w-12 h-12 bg-white/10 backdrop-blur-xl border border-white/20 text-white hover:bg-red-500 rounded-2xl flex items-center justify-center transition-all">
+                                <button onClick={() => handleDelete(slide)} className="w-12 h-12 bg-white/10 backdrop-blur-xl border border-white/20 text-white hover:bg-red-500 rounded-2xl flex items-center justify-center transition-all">
                                     <Trash2 size={20} />
                                 </button>
                             </div>

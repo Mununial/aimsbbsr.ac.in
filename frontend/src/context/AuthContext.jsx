@@ -1,6 +1,6 @@
 import { createContext, useState, useContext, useEffect } from 'react';
-import axios from 'axios';
-import API_BASE_URL from '../apiConfig';
+import { auth } from '../firebase';
+import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'firebase/auth';
 
 const AuthContext = createContext();
 
@@ -8,42 +8,40 @@ export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
-    const [token, setToken] = useState(localStorage.getItem('token'));
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        if (token) {
-            localStorage.setItem('token', token);
-            // In a real app, verify token with API here
-            setUser({ username: localStorage.getItem('username') });
-        } else {
-            localStorage.removeItem('token');
-            localStorage.removeItem('username');
-            setUser(null);
-        }
-        setLoading(false);
-    }, [token]);
+        const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+            if (currentUser) {
+                setUser({ email: currentUser.email, uid: currentUser.uid });
+            } else {
+                setUser(null);
+            }
+            setLoading(false);
+        });
+        return unsubscribe;
+    }, []);
 
-    const login = async (username, password) => {
+    const login = async (email, password) => {
         try {
-            const res = await axios.post(`${API_BASE_URL}/api/admin/login`, { username, password });
-            setToken(res.data.token);
-            setUser({ username: res.data.username });
-            localStorage.setItem('username', res.data.username);
+            await signInWithEmailAndPassword(auth, email, password);
             return true;
         } catch (err) {
-            console.error("Login failed", err);
+            console.error("Login failed", err.message);
             return false;
         }
     };
 
-    const logout = () => {
-        setToken(null);
-        setUser(null);
+    const logout = async () => {
+        try {
+            await signOut(auth);
+        } catch (error) {
+            console.error("Logout failed", error);
+        }
     };
 
     return (
-        <AuthContext.Provider value={{ user, token, login, logout, loading }}>
+        <AuthContext.Provider value={{ user, login, logout, loading }}>
             {children}
         </AuthContext.Provider>
     );

@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
 import {
     Users, BookOpen, Building, Image, Bell, Clock, ArrowUpRight, TrendingUp
 } from 'lucide-react';
-import API_BASE_URL from '../apiConfig';
+import { db } from '../firebase';
+import { collection, onSnapshot } from 'firebase/firestore';
 
 const StatCard = ({ title, value, icon: Icon, color }) => (
     <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm hover:shadow-md transition-all group">
@@ -37,29 +37,26 @@ const DashboardHome = () => {
     });
 
     useEffect(() => {
-        const fetchCounts = async () => {
-            try {
-                // Fetch real counts from API
-                const [f, c, d, n, g] = await Promise.all([
-                    axios.get(`${API_BASE_URL}/api/faculty`),
-                    axios.get(`${API_BASE_URL}/api/courses`),
-                    axios.get(`${API_BASE_URL}/api/departments`),
-                    axios.get(`${API_BASE_URL}/api/notices`),
-                    axios.get(`${API_BASE_URL}/api/gallery`)
-                ]);
+        const collections = ['faculty', 'courses', 'departments', 'notices', 'gallery'];
+        const unsubscribers = [];
 
-                setCounts({
-                    faculty: f.data.length,
-                    courses: c.data.length,
-                    departments: d.data.length,
-                    notices: n.data.length,
-                    gallery: g.data.length
+        try {
+            collections.forEach(coll => {
+                const unsub = onSnapshot(collection(db, coll), (snapshot) => {
+                    setCounts(prev => ({
+                        ...prev,
+                        [coll]: snapshot.size
+                    }));
                 });
-            } catch (err) {
-                console.error(err);
-            }
+                unsubscribers.push(unsub);
+            });
+        } catch (err) {
+            console.error(err);
+        }
+
+        return () => {
+            unsubscribers.forEach(u => u());
         };
-        fetchCounts();
     }, []);
 
     const stats = [

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
 import { Plus, Trash2, Edit, Save, X, UserCircle2, Loader2 } from 'lucide-react';
-import API_BASE_URL from '../apiConfig';
+import { db, storage } from '../firebase';
+import { collection, addDoc, doc, updateDoc, deleteDoc, onSnapshot, query } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 
 const AdminFaculty = () => {
     const [faculty, setFaculty] = useState([]);
@@ -22,23 +23,20 @@ const AdminFaculty = () => {
     const token = localStorage.getItem('token');
 
     useEffect(() => {
-        fetchData();
-    }, []);
+        const unsubscribeFac = onSnapshot(collection(db, "faculty"), (snapshot) => {
+            setFaculty(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+            setLoading(false);
+        }, (err) => console.error(err));
 
-    const fetchData = async () => {
-        try {
-            const [facRes, deptRes] = await Promise.all([
-                axios.get(`${API_BASE_URL}/api/faculty`),
-                axios.get(`${API_BASE_URL}/api/departments`)
-            ]);
-            setFaculty(facRes.data);
-            setDepartments(deptRes.data);
-            setLoading(false);
-        } catch (err) {
-            console.error('Error fetching data:', err);
-            setLoading(false);
-        }
-    };
+        const unsubscribeDept = onSnapshot(collection(db, "departments"), (snapshot) => {
+            setDepartments(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        }, (err) => console.error(err));
+
+        return () => {
+            unsubscribeFac();
+            unsubscribeDept();
+        };
+    }, []);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -53,35 +51,47 @@ const AdminFaculty = () => {
         e.preventDefault();
         setActionLoading(true);
 
-        const data = new FormData();
-        data.append('name', formData.name);
-        data.append('designation', formData.designation);
-        data.append('qualification', formData.qualification);
-        data.append('department_id', formData.department_id);
-        if (formData.photo instanceof File) {
-            data.append('photo', formData.photo);
-        }
-
         try {
+            let photoUrl = formData.photo;
+            if (formData.newPhoto) {
+                const formDataUpload = new FormData();
+                formDataUpload.append('image', formData.newPhoto);
+                
+                const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+                const response = await fetch(`${API_URL}/api/upload`, {
+                    method: 'POST',
+                    body: formDataUpload
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.message || 'Upload failed');
+                photoUrl = data.url;
+            }
+
+            const dept = departments.find(d => d.id === formData.department_id);
+            const department_name = dept ? dept.department_name : '';
+
             if (editingId) {
-                await axios.put(`${API_BASE_URL}/api/faculty/${editingId}`, data, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'multipart/form-data'
-                    }
+                await updateDoc(doc(db, "faculty", editingId), {
+                    name: formData.name,
+                    designation: formData.designation,
+                    qualification: formData.qualification,
+                    department_id: formData.department_id,
+                    department_name: department_name,
+                    photo: photoUrl
                 });
             } else {
-                await axios.post(`${API_BASE_URL}/api/faculty`, data, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'multipart/form-data'
-                    }
+                await addDoc(collection(db, "faculty"), {
+                    name: formData.name,
+                    designation: formData.designation,
+                    qualification: formData.qualification,
+                    department_id: formData.department_id,
+                    department_name: department_name,
+                    photo: photoUrl || null
                 });
             }
             setShowForm(false);
             setEditingId(null);
-            setFormData({ name: '', designation: '', qualification: '', department_id: '', photo: null });
-            fetchData();
+            setFormData({ name: '', designation: '', qualification: '', department_id: '', photo: null, newPhoto: null });
         } catch (err) {
             alert('Error saving faculty: ' + err.message);
         } finally {
@@ -95,20 +105,24 @@ const AdminFaculty = () => {
             designation: member.designation,
             qualification: member.qualification,
             department_id: member.department_id,
-            photo: member.photo
+            photo: member.photo,
+            newPhoto: null
         });
         setEditingId(member.id);
         setShowForm(true);
     };
 
-    const handleDelete = async (id) => {
+    const handleDelete = async (member) => {
         if (!window.confirm('Are you sure you want to delete this faculty member?')) return;
 
         try {
-            await axios.delete(`${API_BASE_URL}/api/faculty/${id}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            fetchData();
+            if (member.photo && member.photo.includes('firebase')) {
+                try {
+                    const fileRef = ref(storage, member.photo);
+                    await deleteObject(fileRef);
+                } catch (e) { console.error("Could not delete legacy photo", e); }
+            }
+            await deleteDoc(doc(db, "faculty", member.id));
         } catch (err) {
             alert('Error deleting faculty: ' + err.message);
         }
@@ -195,7 +209,7 @@ const AdminFaculty = () => {
                         <div className="space-y-2 md:col-span-2">
                             <label className="text-xs font-black uppercase text-gray-400 tracking-widest ml-1">Photo Upload</label>
                             <div className="flex items-center gap-4 p-4 bg-white border border-gray-200 border-dashed rounded-2xl hover:border-primary transition-all">
-                                <input type="file" onChange={handleFileChange} className="text-sm font-bold text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-black file:bg-primary/10 file:text-primary hover:file:bg-primary/20 pointer-cursor" />
+                                <input type="file" onChange={(e) => setFormData({ ...formData, newPhoto: e.target.files[0] })} className="text-sm font-bold text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-black file:bg-primary/10 file:text-primary hover:file:bg-primary/20 pointer-cursor" />
                             </div>
                         </div>
                         <div className="md:col-span-2 pt-4">
@@ -223,7 +237,7 @@ const AdminFaculty = () => {
                             <div className="aspect-[4/5] bg-gray-100 relative overflow-hidden">
                                 {member.photo ? (
                                     <img
-                                        src={`${API_BASE_URL}/${member.photo}`}
+                                        src={member.photo}
                                         alt={member.name}
                                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                                     />
@@ -240,7 +254,7 @@ const AdminFaculty = () => {
                                         <Edit size={20} />
                                     </button>
                                     <button
-                                        onClick={() => handleDelete(member.id)}
+                                        onClick={() => handleDelete(member)}
                                         className="p-3 bg-red-500 text-white rounded-xl shadow-lg hover:bg-red-600 transition-colors"
                                     >
                                         <Trash2 size={20} />

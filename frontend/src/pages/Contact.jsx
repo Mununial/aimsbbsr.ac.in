@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Phone, Mail, MapPin, Send, Instagram, Facebook, Globe, Users2, Sparkles, PhoneCall, CheckCircle2 } from 'lucide-react';
-import axios from 'axios';
 import API_BASE_URL from '../apiConfig';
 import SEO from '../components/SEO';
 
@@ -30,16 +29,23 @@ const Contact = () => {
         };
 
         try {
-            const res = await axios.post(`${API_BASE_URL}/api/inquiry/inquiry`, cleanData);
-            if (res.data.success) {
+            const res = await fetch(`${API_BASE_URL}/api/inquiry/inquiry`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(cleanData)
+            });
+            const data = await res.json();
+            
+            if (res.ok && data.success) {
                 setStatus({ type: 'success', msg: "Message sent! Check aimsbbsrsupport@gmail.com." });
                 setFormData({ name: '', email: '', phone: '', category: 'B.Pharm Admissions', message: '' });
+            } else {
+                throw new Error(data.message || "Server Error. Check Backend Console.");
             }
         } catch (err) {
-            const errorMsg = err.response?.data?.message || "Server Error. Check Backend Console.";
             setStatus({
                 type: 'error',
-                msg: errorMsg
+                msg: err.message
             });
         } finally {
             setLoading(false);

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
 import { Plus, Trash2, Edit2, Save, X, BookOpen, Loader2 } from 'lucide-react';
-import API_BASE_URL from '../apiConfig';
+import { db } from '../firebase';
+import { collection, addDoc, doc, updateDoc, deleteDoc, onSnapshot, query, orderBy } from 'firebase/firestore';
 
 const AdminCourses = () => {
     const [courses, setCourses] = useState([]);
@@ -19,19 +19,16 @@ const AdminCourses = () => {
     const token = localStorage.getItem('token');
 
     useEffect(() => {
-        fetchCourses();
-    }, []);
-
-    const fetchCourses = async () => {
-        try {
-            const res = await axios.get(`${API_BASE_URL}/api/courses`);
-            setCourses(res.data);
+        const unsubscribe = onSnapshot(collection(db, "courses"), (snapshot) => {
+            setCourses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
             setLoading(false);
-        } catch (err) {
+        }, (err) => {
             console.error('Error fetching courses:', err);
             setLoading(false);
-        }
-    };
+        });
+
+        return () => unsubscribe();
+    }, []);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -43,16 +40,19 @@ const AdminCourses = () => {
         setActionLoading(true);
         try {
             if (editingId) {
-                await axios.put(`${API_BASE_URL}/api/courses/${editingId}`, formData, {
-                    headers: { 'Authorization': `Bearer ${token}` }
+                await updateDoc(doc(db, "courses", editingId), {
+                    course_name: formData.course_name,
+                    duration: formData.duration,
+                    description: formData.description
                 });
             } else {
-                await axios.post(`${API_BASE_URL}/api/courses`, formData, {
-                    headers: { 'Authorization': `Bearer ${token}` }
+                await addDoc(collection(db, "courses"), {
+                    course_name: formData.course_name,
+                    duration: formData.duration,
+                    description: formData.description
                 });
             }
             resetForm();
-            fetchCourses();
         } catch (err) {
             alert('Error: ' + err.message);
         } finally {
@@ -73,10 +73,7 @@ const AdminCourses = () => {
     const handleDelete = async (id) => {
         if (!window.confirm('Delete this course? All associated departments might be affected.')) return;
         try {
-            await axios.delete(`${API_BASE_URL}/api/courses/${id}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            fetchCourses();
+            await deleteDoc(doc(db, "courses", id));
         } catch (err) {
             alert('Error: ' + err.message);
         }

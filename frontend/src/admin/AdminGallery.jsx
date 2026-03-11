@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
 import { Plus, Trash2, X, Image as ImageIcon, Loader2, UploadCloud } from 'lucide-react';
-import API_BASE_URL from '../apiConfig';
+import { db, storage } from '../firebase';
+import { collection, addDoc, doc, deleteDoc, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 
 const AdminGallery = () => {
     const [gallery, setGallery] = useState([]);
@@ -20,19 +21,19 @@ const AdminGallery = () => {
     const token = localStorage.getItem('token');
 
     useEffect(() => {
-        fetchGallery();
-    }, []);
+        const q = query(collection(db, "gallery"));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+                             .sort((a,b) => new Date(b.created_at || Date.now()) - new Date(a.created_at || Date.now()));
+            setGallery(data);
+            setLoading(false);
+        }, (error) => {
+            console.error('Error fetching gallery:', error);
+            setLoading(false);
+        });
 
-    const fetchGallery = async () => {
-        try {
-            const res = await axios.get(`${API_BASE_URL}/api/gallery`);
-            setGallery(res.data);
-            setLoading(false);
-        } catch (err) {
-            console.error('Error fetching gallery:', err);
-            setLoading(false);
-        }
-    };
+        return () => unsubscribe();
+    }, []);
 
     const handleFileChange = (e) => {
         setFormData({ ...formData, image: e.target.files[0] });
@@ -43,22 +44,30 @@ const AdminGallery = () => {
         if (!formData.image) return alert('Please select an image');
 
         setActionLoading(true);
-        const data = new FormData();
-        data.append('category', formData.category);
-        data.append('title', formData.title);
-        data.append('description', formData.description);
-        data.append('image', formData.image);
 
         try {
-            await axios.post(`${API_BASE_URL}/api/gallery`, data, {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'multipart/form-data'
-                }
+            const formDataUpload = new FormData();
+            formDataUpload.append('image', formData.image);
+            
+            const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+            const response = await fetch(`${API_URL}/api/upload`, {
+                method: 'POST',
+                body: formDataUpload
             });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.message || 'Upload failed');
+            const image_url = data.url;
+
+            await addDoc(collection(db, "gallery"), {
+                category: formData.category,
+                title: formData.title,
+                description: formData.description,
+                image_url: image_url,
+                created_at: new Date().toISOString()
+            });
+
             setShowForm(false);
             setFormData({ category: 'Campus', title: '', description: '', image: null });
-            fetchGallery();
         } catch (err) {
             alert('Error: ' + err.message);
         } finally {
@@ -66,13 +75,16 @@ const AdminGallery = () => {
         }
     };
 
-    const handleDelete = async (id) => {
+    const handleDelete = async (photo) => {
         if (!window.confirm('Remove this photo from the gallery?')) return;
         try {
-            await axios.delete(`${API_BASE_URL}/api/gallery/${id}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            fetchGallery();
+            if (photo.image_url && photo.image_url.includes('firebase')) {
+                try {
+                    const fileRef = ref(storage, photo.image_url);
+                    await deleteObject(fileRef);
+                } catch(e) { console.error("Could not delete legacy image from storage", e); }
+            }
+            await deleteDoc(doc(db, "gallery", photo.id));
         } catch (err) {
             alert('Error: ' + err.message);
         }
@@ -173,7 +185,7 @@ const AdminGallery = () => {
                     gallery.map((img) => (
                         <div key={img.id} className="group relative aspect-square rounded-[32px] overflow-hidden shadow-lg border-2 border-white hover:border-primary/30 hover:shadow-2xl transition-all duration-500">
                             <img
-                                src={`${API_BASE_URL}/${img.image_url}`}
+                                src={img.image_url}
                                 alt={img.title || img.category}
                                 className="w-full h-full object-cover group-hover:scale-125 transition-transform duration-1000"
                             />
@@ -186,7 +198,7 @@ const AdminGallery = () => {
                             </div>
                             <div className="absolute top-4 right-4 translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500">
                                 <button
-                                    onClick={() => handleDelete(img.id)}
+                                    onClick={() => handleDelete(img)}
                                     className="p-3 bg-red-500/90 text-white rounded-2xl hover:bg-red-600 shadow-xl backdrop-blur-sm transition-all"
                                 >
                                     <Trash2 size={18} />

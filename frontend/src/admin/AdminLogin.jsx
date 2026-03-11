@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Lock, User, AlertCircle, Loader } from 'lucide-react';
 import { motion } from 'framer-motion';
+import aimsLogo from '../assets/aims_logo.png';
 
 const AdminLogin = () => {
-    const [username, setUsername] = useState('');
+    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [isLoggingIn, setIsLoggingIn] = useState(false);
@@ -17,7 +18,7 @@ const AdminLogin = () => {
         e.preventDefault();
         setError('');
         setIsLoggingIn(true);
-        const success = await login(username, password);
+        const success = await login(email, password);
         if (success) {
             navigate('/admin/dashboard');
         } else {
@@ -34,25 +35,25 @@ const AdminLogin = () => {
                 className="w-full max-w-md bg-white rounded-3xl shadow-2xl p-8 border border-primary/10"
             >
                 <div className="text-center mb-8">
-                    <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center mx-auto mb-4 text-white shadow-lg">
-                        <Lock size={32} />
+                    <div className="w-24 h-24 bg-white rounded-3xl flex items-center justify-center mx-auto mb-6 p-3 shadow-2xl border border-primary/10 overflow-hidden ring-8 ring-primary/5">
+                        <img src={aimsLogo} alt="AIMS Logo" className="w-full h-full object-contain" />
                     </div>
                     <h1 className="text-3xl font-bold text-dark">Admin Access</h1>
-                    <p className="text-gray-500 mt-2">Sign in to manage AIMBS campus portal</p>
+                    <p className="text-gray-500 mt-2">Sign in to manage AIMS campus portal</p>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <div>
-                        <label className="text-sm font-bold text-gray-700 block mb-2">Username</label>
+                        <label className="text-sm font-bold text-gray-700 block mb-2">Admin Email</label>
                         <div className="relative">
                             <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                             <input
-                                type="text"
+                                type="email"
                                 required
                                 className="w-full pl-10 pr-4 py-3 bg-accent/30 border border-transparent focus:border-primary rounded-xl outline-none transition-all"
-                                placeholder="Enter admin username"
-                                value={username}
-                                onChange={(e) => setUsername(e.target.value)}
+                                placeholder="Enter admin email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
                             />
                         </div>
                     </div>

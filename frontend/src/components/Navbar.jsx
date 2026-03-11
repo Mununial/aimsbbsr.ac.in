@@ -121,15 +121,18 @@ const Navbar = () => {
                 : 'bg-transparent border-transparent py-4'
                 }`}>
                 <div className="container mx-auto px-6 flex justify-between items-center">
-                    <Link to="/" className="flex items-center gap-4 group">
-                        <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center p-1.5 shadow-xl border border-primary/10 group-hover:scale-110 transition-all">
-                            <img src={aimsLogo} alt="Logo" className="w-full h-full object-contain" />
+                    <Link to="/" className="flex items-center gap-6 group">
+                        <div className={`transition-all duration-500 overflow-hidden ${isScrolled || !isHomePage
+                            ? 'w-14 h-14 p-1.5 bg-white rounded-xl shadow-lg border border-primary/10'
+                            : 'w-20 h-20 p-2 bg-white/10 backdrop-blur-xl rounded-[24px] border border-white/20 shadow-2xl shadow-primary/20'
+                        } group-hover:scale-110 group-hover:rotate-3 flex items-center justify-center`}>
+                            <img src={aimsLogo} alt="Logo" className="w-full h-full object-contain brightness-110" />
                         </div>
                         <div className="flex flex-col text-left">
-                            <h1 className={`font-black tracking-tighter text-xl leading-none ${isScrolled || !isHomePage ? 'text-dark' : 'text-white'}`}>
-                                AYUSH <span className="text-primary uppercase">Institute</span>
+                            <h1 className={`font-black tracking-tighter text-2xl leading-none transition-colors duration-500 ${isScrolled || !isHomePage ? 'text-dark' : 'text-white'}`}>
+                                AYUSH <span className="text-primary italic uppercase">INSTITUTE</span>
                             </h1>
-                            <p className={`text-[9px] font-black uppercase tracking-[0.3em] ${isScrolled || !isHomePage ? 'text-gray-400' : 'text-white/60'}`}>Bhubaneswar</p>
+                            <p className={`text-[10px] font-black uppercase tracking-[0.4em] transition-colors duration-500 ${isScrolled || !isHomePage ? 'text-gray-400' : 'text-white/70'}`}>Bhubaneswar</p>
                         </div>
                     </Link>
 
@@ -200,9 +203,14 @@ const Navbar = () => {
                         >
                             {/* Drawer Header */}
                             <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
-                                <div className="flex items-center gap-3">
-                                    <img src={aimsLogo} alt="Logo" className="w-8 h-8 object-contain" />
-                                    <span className="font-black text-xs uppercase tracking-tighter">Menu</span>
+                                <div className="flex items-center gap-4">
+                                    <div className="w-14 h-14 bg-white p-2 rounded-2xl shadow-xl border border-primary/5 flex items-center justify-center">
+                                        <img src={aimsLogo} alt="Logo" className="w-full h-full object-contain brightness-110" />
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <span className="font-black text-lg uppercase tracking-tight leading-none">AIMS</span>
+                                        <span className="text-[8px] font-black text-primary tracking-[0.3em] uppercase mt-1">Bhubaneswar</span>
+                                    </div>
                                 </div>
                                 <button
                                     className="p-2 hover:bg-gray-200 rounded-xl text-dark transition-colors"

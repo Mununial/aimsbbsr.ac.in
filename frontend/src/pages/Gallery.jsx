@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
-import API_BASE_URL from '../apiConfig';
+import { db } from '../firebase';
+import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Camera, Eye, MapPin, Microscope, Users2, Award, Building2, Loader2, ImageIcon } from 'lucide-react';
 import realCampus1 from '../assets/real_campus1.jpg';
@@ -18,17 +18,18 @@ const Gallery = () => {
     const filters = ['All', 'Campus', 'Laboratories', 'Events', 'Seminars'];
 
     useEffect(() => {
-        const fetchGallery = async () => {
-            try {
-                const res = await axios.get(`${API_BASE_URL}/api/gallery`);
-                setGallery(res.data);
-            } catch (err) {
-                console.error("Error fetching gallery", err);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchGallery();
+        const q = query(collection(db, "gallery"));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+                             .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            setGallery(data);
+            setLoading(false);
+        }, (error) => {
+            console.error("Error fetching gallery:", error);
+            setLoading(false);
+        });
+
+        return () => unsubscribe();
     }, []);
 
     const staticImages = [
@@ -44,10 +45,9 @@ const Gallery = () => {
     const filteredImages = activeFilter === 'All' ? allImages : allImages.filter(img => img.category === activeFilter);
 
     const getImageSource = (url) => {
-        if (typeof url === 'string' && url.startsWith('uploads')) {
-            return `${API_BASE_URL}/${url}`;
-        }
-        return url; // It's a local imported asset
+        // Firebase Storage URLs are already absolute complete URLs
+        // Local assets also resolve correctly
+        return url;
     };
 
     const containerVariants = {

@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bell, Trash2, Edit, Plus, X, Check, Search, Calendar } from 'lucide-react';
-import axios from 'axios';
-import API_BASE_URL from '../apiConfig';
+import { db } from '../firebase';
+import { collection, addDoc, doc, updateDoc, deleteDoc, onSnapshot, query, orderBy } from 'firebase/firestore';
 
 const AdminNotices = () => {
     const [notices, setNotices] = useState([]);
@@ -12,57 +12,79 @@ const AdminNotices = () => {
     const [formData, setFormData] = useState({ title: '', description: '' });
     const [status, setStatus] = useState({ message: '', error: false });
 
-    const fetchNotices = async () => {
-        try {
-            const res = await axios.get(`${API_BASE_URL}/api/notices`);
-            setNotices(res.data);
-        } catch (err) {
-            console.error(err);
-        } finally {
-            setLoading(false);
-        }
-    };
-
     useEffect(() => {
-        fetchNotices();
+        const q = query(collection(db, "notices"));
+        let isMounted = true;
+        const fallbackTimer = setTimeout(() => {
+            if (isMounted) {
+                setLoading(false);
+                setStatus({ message: "Firebase connection taking too long. Displaying empty state.", error: true });
+                console.warn("Firebase took too long to respond, forcing loading to false.");
+            }
+        }, 5000);
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            if (snapshot.empty) {
+                setNotices([]);
+                if (isMounted) setLoading(false);
+                clearTimeout(fallbackTimer);
+                return;
+            }
+            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+                             .sort((a, b) => new Date(b.date) - new Date(a.date));
+            setNotices(data);
+            if (isMounted) setLoading(false);
+            clearTimeout(fallbackTimer);
+        }, (error) => {
+            console.error("Error fetching notices:", error);
+            setNotices([]);
+            if (isMounted) setLoading(false);
+            clearTimeout(fallbackTimer);
+            setStatus({ message: "Error connecting to database", error: true });
+        });
+
+        return () => {
+            isMounted = false;
+            clearTimeout(fallbackTimer);
+            unsubscribe();
+        };
     }, []);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        const token = localStorage.getItem('token');
         try {
             if (editingNotice) {
-                await axios.put(`${API_BASE_URL}/api/notices/${editingNotice.id}`, formData, {
-                    headers: { Authorization: `Bearer ${token}` }
+                await updateDoc(doc(db, "notices", editingNotice.id), {
+                    title: formData.title,
+                    description: formData.description
                 });
                 setStatus({ message: "Notice updated successfully", error: false });
             } else {
-                await axios.post(`${API_BASE_URL}/api/notices`, formData, {
-                    headers: { Authorization: `Bearer ${token}` }
+                await addDoc(collection(db, "notices"), {
+                    title: formData.title,
+                    description: formData.description,
+                    date: new Date().toISOString()
                 });
                 setStatus({ message: "Notice added successfully", error: false });
             }
             setIsModalOpen(false);
             setEditingNotice(null);
             setFormData({ title: '', description: '' });
-            fetchNotices();
             setTimeout(() => setStatus({ message: '', error: false }), 3000);
         } catch (err) {
+            console.error(err);
             setStatus({ message: "Operation failed", error: true });
         }
     };
 
     const handleDelete = async (id) => {
         if (!window.confirm("Are you sure you want to delete this notice?")) return;
-        const token = localStorage.getItem('token');
         try {
-            await axios.delete(`${API_BASE_URL}/api/notices/${id}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            await deleteDoc(doc(db, "notices", id));
             setStatus({ message: "Notice deleted", error: false });
-            fetchNotices();
             setTimeout(() => setStatus({ message: '', error: false }), 3000);
         } catch (err) {
+            console.error(err);
             setStatus({ message: "Delete failed", error: true });
         }
     };
