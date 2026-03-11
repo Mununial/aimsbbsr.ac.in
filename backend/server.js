@@ -27,9 +27,13 @@ app.use('/api/', limiter);
 app.use(hpp()); // Protect against HTTP Parameter Pollution
 
 // Middleware
-app.use(compression()); // Compress all responses
-app.use(cors());
-app.use(express.json({ limit: '10kb' })); // Body parser with limit
+app.use(compression());
+app.use(cors({
+    origin: ["https://aimsbbsr-ac-in-1.onrender.com", "http://localhost:5173", "http://localhost:5174"],
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    allowedHeaders: ["Content-Type", "Authorization"]
+}));
+app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 
 // Serve static files (uploads)
