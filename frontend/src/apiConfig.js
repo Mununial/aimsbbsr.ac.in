@@ -3,15 +3,15 @@
 // by using the actual IP address of the laptop instead of 'localhost'.
 
 const getBaseUrl = () => {
-    // If we are on Render (Production), use the secure backend URL
-    if (window.location.hostname !== 'localhost') {
+    // Check if we are in production (on Render or any other hosted domain)
+    const isProduction = window.location.hostname !== 'localhost' && !window.location.hostname.includes('192.168.');
+
+    if (isProduction) {
         return 'https://aimsbbsr-ac-in.onrender.com';
     }
 
-    // Otherwise, use local development defaults
-    const hostname = window.location.hostname;
-    const port = 5000;
-    return `http://${hostname}:${port}`;
+    // Local Development
+    return `http://${window.location.hostname}:5000`;
 };
 
 export const API_BASE_URL = getBaseUrl();
