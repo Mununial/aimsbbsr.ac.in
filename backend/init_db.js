@@ -1,5 +1,4 @@
 const mysql = require('mysql2/promise');
-const bcrypt = require('bcryptjs');
 require('dotenv').config();
 
 async function initializeDatabase() {
@@ -76,9 +75,8 @@ async function initializeDatabase() {
         )`);
 
         // 8. Create Default Admin
-        const hashedPassword = await bcrypt.hash('Aims@2026', 10);
         await connection.query('INSERT IGNORE INTO admin (username, password) VALUES (?, ?)',
-            ['aimsbbsrsupport@gmail.com', hashedPassword]
+            ['aimsbbsrsupport@gmail.com', 'Aims@2026']
         );
 
         console.log("✅ All Tables Created Successfully!");
