@@ -4,7 +4,6 @@ const path = require('path');
 const compression = require('compression');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-const xss = require('xss-clean');
 const hpp = require('hpp');
 require('dotenv').config();
 
@@ -25,7 +24,6 @@ const limiter = rateLimit({
 app.use('/api/', limiter);
 
 // Data Sanitization
-app.use(xss()); // Protect against XSS
 app.use(hpp()); // Protect against HTTP Parameter Pollution
 
 // Middleware
@@ -37,7 +35,7 @@ app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 // Serve static files (uploads)
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Routes (to be implemented)
+// Routes
 app.use('/api/courses', require('./routes/courseRoutes'));
 app.use('/api/departments', require('./routes/departmentRoutes'));
 app.use('/api/faculty', require('./routes/facultyRoutes'));
@@ -62,4 +60,3 @@ app.listen(PORT, async () => {
         console.error('❌ Database Connection Failed:', err.message);
     }
 });
-
